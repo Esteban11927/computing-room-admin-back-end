@@ -1,38 +1,34 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcrypt');
 
 router.use(express.json());
 
-const bcrypt = require('bcrypt');
-
 const allowUserRegistration = require('./middleware/allowUserRegistration');
+const sendRegistrationMail = require('./middleware/sendRegistrationMail');
+const decodeUserConfirmJWT = require('./middleware/decodeUserConfirmJWT');
 
-router.post('/registerUser', allowUserRegistration, async(req, res) => {
+router.post('/registerUser', allowUserRegistration, sendRegistrationMail, async(req, res) => {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end("Check your mail to confirm your registration");
+    return;
+})
 
-    // if res.message exists it's because can't allow registration
-    if(res.message){
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end(res.message);
-        return;
-    }
-    let username = req.body.username;
-    let mail = req.body.mail;
-    let plainPassWord = req.body.password;
+router.get('/confirmRegistration/:jwt', decodeUserConfirmJWT, allowUserRegistration, async(req, res) => {
 
     // hash the password
     saltRounds = parseInt(process.env.SALT_ROUNDS);
     let salt = await bcrypt.genSalt(saltRounds);
-    let password = await bcrypt.hash(plainPassWord, salt);
+    let password = await bcrypt.hash(req.body.password, salt);
 
     const User = require('../../models/userDB'); //require user model
-    const user = new User({username: username, mail: mail, password: password}); //create new user object
+    const user = new User({username: req.body.username, mail: req.body.mail, password: password}); //create new user object
     await user.save(); //save object on database
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain');
     res.end("user registered");
-    return;
 })
 
 
